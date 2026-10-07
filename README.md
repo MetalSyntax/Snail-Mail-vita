@@ -33,13 +33,13 @@ This repository contains a **wrapper/loader** for the Android release of Snail M
 > [!IMPORTANT]
 > Please review these notes before playing or reporting issues:
 
-- **Controles en Modo Inclinación (Tilt Mode Only)**:
-  - El juego actualmente **solo responde a los controles físicos si en las opciones del juego está seleccionado "Tilt Mode"** (Modo Inclinación).
-  - Los controles físicos (Stick Analógico Izquierdo y Cruceta D-Pad) emulan el acelerómetro nativo (`JNIAccelerometer`) de Android para mover a Turbo.
-  - **Touch Mode** aún no está disponible con controles analógicos: se está trabajando activamente en la implementación completa del modo táctil en pantalla.
-- **Navegación de Menús únicamente por Pantalla Táctil**:
-  - Los menús principales y las pantallas de selección del juego no admiten navegación mediante botones o cruceta física.
-  - **Debes usar la pantalla táctil frontal de la PS Vita** para interactuar con los botones de la interfaz y menús del juego.
+- **Controls in Tilt Mode Only**:
+  - The game currently **only responds to physical controls if "Tilt Mode" is selected in the game options**.
+  - Physical controls (Left Analog Stick and D-Pad) emulate Android's native accelerometer (`JNIAccelerometer`) to steer Turbo.
+  - **Touch Mode** is not yet functional with analog controls: work is actively underway to implement full touch screen and on-screen steering support.
+- **Menu Navigation Requires Front Touchscreen**:
+  - Main menus and level selection screens do not support navigation via physical buttons or D-Pad.
+  - **You must use the PS Vita front touchscreen** to interact with UI buttons and navigate through menus.
 
 ---
 
@@ -87,7 +87,7 @@ ux0:data/snailmail/
 |:---:|:---|:---|
 | **Front Touchscreen** | Touch / Tap | **Select / Navigate Menus** |
 | **Left Analog Stick** | Steer Turbo (Left / Right / Up / Down) *(Tilt Mode)* | — |
-| **D-Pad (Cruceta)** | Steer Turbo (Left / Right / Up / Down) *(Tilt Mode)* | — |
+| **D-Pad** | Steer Turbo (Left / Right / Up / Down) *(Tilt Mode)* | — |
 | **Cross (X)** | Jump / Use Booster / Shoot | — |
 | **R1 Trigger** | Jump / Action | — |
 | **START** | Pause Game | Pause |
