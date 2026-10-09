@@ -31,14 +31,27 @@ This repository contains a **wrapper/loader** for the Android release of Snail M
 ## ✨ Features & Control Support
 
 - **Universal Controls (Tilt & Touch Modes)**:
-  - Physical controls (Left Analog Stick and D-Pad) steer Turbo seamlessly regardless of whether **"Tilt Mode"** or **"Touch Mode"** is selected in settings.
-  - Front Touchscreen steering is fully functional during gameplay (touching the left/right halves of the screen steers Turbo).
-- **Full Physical Menu Navigation**:
-  - Main menus, options screens, pause menu, and level selection support **D-Pad smart snapping** to cycle through buttons.
-  - **Left Analog Stick** controls a smooth virtual cursor on screen.
-  - **Cross (X)** selects/activates buttons.
-  - **Circle (O) / Triangle** triggers Back / Cancel / OK navigation.
-  - Front Touchscreen remains fully supported simultaneously.
+  - Physical controls (Left Analog Stick and D-Pad) steer Turbo regardless of whether **"Tilt Mode"** or **"Touch Mode"** is selected in settings.
+  - In Tilt Mode the game receives a stable, centered accelerometer vector, so the camera no longer drifts.
+  - Front Touchscreen steering is fully functional during gameplay.
+- **Physical Shooting & Pause**:
+  - **Cross (X)** / **R1** fire from Turbo's current lane (left, center or right) without pulling him to the center; hold for auto-fire while you keep steering.
+  - **START** opens the in-game pause menu.
+- **Physical Menu Navigation**:
+  - **D-Pad** and **Left Analog Stick** move a virtual cursor; the button under it is highlighted.
+  - **Cross (X)** / **R1** tap the button under the cursor (menus, Continue screens, tutorial cards).
+  - Front Touchscreen remains fully supported at the same time.
+- **In-Game Controls Menu (START + SELECT)**:
+  - Remap SHOOT, STEER LEFT/RIGHT and PAUSE, adjust DEADZONE and SENSITIVITY, or reset to defaults. Saved automatically to `ux0:data/snailmail/controls.txt`.
+
+---
+
+## Known Issues / Current Limitations
+
+> [!WARNING]
+> - **GPU hang during the tutorial (under observation)**: earlier builds could freeze the console's GPU at a fixed point of the tutorial (when Turbo becomes invincible). v01.01 adds several protections (see [release notes](Docs/RELEASE_v01.01.md)) and the tutorial has been completed without freezing on real hardware, but the exact trigger is not yet confirmed. If it happens, please share `ux0:data/snailmail/logs/snailmail_NNN.log` and the crash dump from `ux0:data/`.
+> - **Missing textures in the original data**: the game itself logs a few `Cannot find Texture X/...` messages while loading (also present in the Android build); they are harmless.
+> - **OpenFeint** (online leaderboards/achievements) is a discontinued service and is not available.
 
 ---
 
@@ -84,13 +97,13 @@ ux0:data/snailmail/
 
 | Input | In-Game Action | Menu Navigation |
 |:---:|:---|:---|
-| **Left Analog Stick** | Steer Turbo (Analog Steering) | — |
-| **D-Pad (Left / Right)** | Steer Turbo | — |
-| **Cross (X)** | Shoot (hold for auto-fire) / Start Level | Select (via Touch) |
-| **R1** | Shoot (alternative) | — |
-| **START** | Pause Game | — |
-| **START + SELECT** | Open controls remapping menu | Close menu |
-| **Front Touchscreen** | Touch Steering | Direct Touch Selection |
+| **Left Analog Stick** | Steer Turbo (analog) | Move virtual cursor |
+| **D-Pad** | Steer Turbo (Left / Right) | Move virtual cursor |
+| **Cross (X)** | Shoot from current lane (hold for auto-fire) | Tap button under cursor |
+| **R1** | Shoot (alternative) | Tap button under cursor |
+| **START** | Open pause menu | — |
+| **START + SELECT** | Open controls menu | Open / close controls menu |
+| **Front Touchscreen** | Touch steering / fire | Direct touch selection |
 
 > [!TIP]
 > **In-game controls menu**: press **START + SELECT** together to open the
@@ -127,6 +140,11 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 # Compile VPK
 cmake --build build
 ```
+
+> [!NOTE]
+> The vendored `vendor/vitaGL` carries small port-specific patches (texture
+> validation in the fixed-function draw paths: `ffp_textures_valid()` in
+> `ffp.c` / `draw.c`). Re-apply them if you update vitaGL.
 
 This will automatically compile the vendored `vitaGL` library with softfp flags and generate `build/snailmail.vpk`.
 
