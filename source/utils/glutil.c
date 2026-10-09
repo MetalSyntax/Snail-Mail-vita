@@ -37,6 +37,10 @@ void gl_preload() {
 }
 
 void gl_init() {
+    // Pool immediate-mode en 0: el juego solo usa vertex arrays. El menu de
+    // controles lo activa solo mientras esta abierto (controls_menu_open),
+    // porque vitaGL lo reserva en cada frame y un pool fijo de 2 MB
+    // desbordado por el overlay corrompia memoria de GPU (Fase 12f).
     vglInitExtended(0, 960, 544, 6 * 1024 * 1024, SCE_GXM_MULTISAMPLE_4X);
 }
 

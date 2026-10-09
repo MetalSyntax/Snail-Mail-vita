@@ -27,10 +27,13 @@ assets/
 
 # Build artifacts
 /build/
-CMakeCache.txt
-CMakeFiles/
-Makefile
-cmake_install.cmake
+# OJO: estas 4 van con / inicial a proposito: sin la barra, el patron
+# `Makefile` tambien excluiria vendor/vitaGL/Makefile y el build del
+# toolkit (que copia respetando .gitignore) llegaria sin Makefile.
+/CMakeCache.txt
+/CMakeFiles/
+/Makefile
+/cmake_install.cmake
 *.elf
 *.self
 *.vpk
@@ -56,3 +59,4 @@ __pycache__/
 .idea/
 *.swp
 cmake-build-*/
+*.jpg

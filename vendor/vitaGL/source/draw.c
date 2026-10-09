@@ -175,7 +175,7 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count) {
 	if (cur_program != 0)
 		is_draw_legal = _glDrawArrays_CustomShadersIMPL(first, count, GL_FALSE);
 	else {
-		if (!(ffp_vertex_attrib_state & (1 << 0)))
+		if (!(ffp_vertex_attrib_state & (1 << 0)) || !ffp_textures_valid())
 			return;
 		_glDrawArrays_FixedFunctionIMPL(first, count);
 	}
@@ -267,7 +267,7 @@ void glMultiDrawArrays(GLenum mode, const GLint *first, const GLsizei *count, GL
 	if (cur_program != 0)
 		_glMultiDrawArrays_CustomShadersIMPL(gxm_p, idx_ptr, first, count, lowest, highest, drawcount);
 	else {
-		if (!(ffp_vertex_attrib_state & (1 << 0)))
+		if (!(ffp_vertex_attrib_state & (1 << 0)) || !ffp_textures_valid())
 			return;
 		_glMultiDrawArrays_FixedFunctionIMPL(gxm_p, idx_ptr, first, count, lowest, highest, drawcount);
 	}
@@ -367,7 +367,7 @@ void glDrawElements(GLenum mode, GLsizei count, GLenum type, const GLvoid *gl_in
 	if (cur_program != 0)
 		is_draw_legal = _glDrawElements_CustomShadersIMPL(src, count, 0, 0, type != GL_UNSIGNED_INT ? SCE_GXM_INDEX_SOURCE_INDEX_16BIT : SCE_GXM_INDEX_SOURCE_INDEX_32BIT);
 	else {
-		if (!(ffp_vertex_attrib_state & (1 << 0)))
+		if (!(ffp_vertex_attrib_state & (1 << 0)) || !ffp_textures_valid())
 			return;
 		_glDrawElements_FixedFunctionIMPL(src, count, 0, 0, type != GL_UNSIGNED_INT ? SCE_GXM_INDEX_SOURCE_INDEX_16BIT : SCE_GXM_INDEX_SOURCE_INDEX_32BIT);
 	}
@@ -413,7 +413,7 @@ void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const GLv
 	if (cur_program != 0)
 		is_draw_legal = _glDrawElements_CustomShadersIMPL(src, count, 0, baseVertex, type == GL_UNSIGNED_SHORT ? SCE_GXM_INDEX_SOURCE_INDEX_16BIT : SCE_GXM_INDEX_SOURCE_INDEX_32BIT);
 	else {
-		if (!(ffp_vertex_attrib_state & (1 << 0)))
+		if (!(ffp_vertex_attrib_state & (1 << 0)) || !ffp_textures_valid())
 			return;
 		_glDrawElements_FixedFunctionIMPL(src, count, 0, baseVertex, type == GL_UNSIGNED_SHORT ? SCE_GXM_INDEX_SOURCE_INDEX_16BIT : SCE_GXM_INDEX_SOURCE_INDEX_32BIT);
 	}
@@ -460,7 +460,7 @@ void glDrawRangeElements(GLenum mode, GLuint start, GLuint end, GLsizei count, G
 	if (cur_program != 0)
 		is_draw_legal = _glDrawElements_CustomShadersIMPL(src, count, end + 1, 0, type == GL_UNSIGNED_SHORT ? SCE_GXM_INDEX_SOURCE_INDEX_16BIT : SCE_GXM_INDEX_SOURCE_INDEX_32BIT);
 	else {
-		if (!(ffp_vertex_attrib_state & (1 << 0)))
+		if (!(ffp_vertex_attrib_state & (1 << 0)) || !ffp_textures_valid())
 			return;
 		_glDrawElements_FixedFunctionIMPL(src, count, end + 1, 0, type == GL_UNSIGNED_SHORT ? SCE_GXM_INDEX_SOURCE_INDEX_16BIT : SCE_GXM_INDEX_SOURCE_INDEX_32BIT);
 	}
@@ -505,7 +505,7 @@ void glDrawRangeElementsBaseVertex(GLenum mode, GLuint start, GLuint end, GLsize
 	if (cur_program != 0)
 		is_draw_legal = _glDrawElements_CustomShadersIMPL(src, count, end + baseVertex + 1, baseVertex, type == GL_UNSIGNED_SHORT ? SCE_GXM_INDEX_SOURCE_INDEX_16BIT : SCE_GXM_INDEX_SOURCE_INDEX_32BIT);
 	else {
-		if (!(ffp_vertex_attrib_state & (1 << 0)))
+		if (!(ffp_vertex_attrib_state & (1 << 0)) || !ffp_textures_valid())
 			return;
 		_glDrawElements_FixedFunctionIMPL(src, count, end + baseVertex + 1, baseVertex, type == GL_UNSIGNED_SHORT ? SCE_GXM_INDEX_SOURCE_INDEX_16BIT : SCE_GXM_INDEX_SOURCE_INDEX_32BIT);
 	}

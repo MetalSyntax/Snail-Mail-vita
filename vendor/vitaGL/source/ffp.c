@@ -1419,6 +1419,27 @@ void _glMultiDrawArrays_FixedFunctionIMPL(SceGxmPrimitiveType gxm_p, uint16_t *i
 #endif
 }
 
+// Snail Mail port: the ffp paths hand tex->gxm_tex to the GPU without checking
+// the texture status (vglDrawObjects does, see draw.c). A deleted or never
+// uploaded texture still bound makes the GPU sample freed/null memory and hang.
+uint32_t vgl_skipped_tex_draws = 0; // Draws dropped by ffp_textures_valid (read by the port's telemetry)
+GLboolean ffp_textures_valid(void) {
+#ifdef DISABLE_FFP_MULTITEXTURE
+	for (int i = 0; i < 1; i++) {
+#else
+	for (int i = 0; i < TEXTURE_COORDS_NUM; i++) {
+#endif
+		if (texture_units[i].state && (ffp_vertex_attrib_state & (1 << FFP_ATTRIB_TEX(i)))) {
+			texture *tex = &texture_slots[texture_units[i].tex_id[texture_units[i].state > 1 ? 0 : 1]];
+			if (tex->status != TEX_VALID) {
+				vgl_skipped_tex_draws++;
+				return GL_FALSE;
+			}
+		}
+	}
+	return GL_TRUE;
+}
+
 void _glDrawElements_FixedFunctionIMPL(uint16_t *idx_buf, GLsizei count, uint32_t top_idx, uint32_t base_idx, SceGxmIndexSource index_type) {
 	uint8_t mask_state = reload_ffp_shaders(NULL, NULL, index_type);
 #ifdef HAVE_PROFILING

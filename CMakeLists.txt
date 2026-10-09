@@ -35,10 +35,11 @@ set(VITAGL_MAKE_FLAGS_STR "SOFTFP_ABI=1 NO_SPLASHSCREEN=1 NO_DEBUG=1 HAVE_SHADER
 separate_arguments(VITAGL_MAKE_FLAGS UNIX_COMMAND "${VITAGL_MAKE_FLAGS_STR}")
 set(VITAGL_STAMP "${CMAKE_BINARY_DIR}/vitagl.stamp")
 add_custom_target(vitaGL_lib
-  COMMAND bash "${VITAGL_VENDOR_DIR}/build_vitagl.sh" "${VITAGL_MAKE_FLAGS_STR}" "${VITAGL_STAMP}" "${VITAGL_VENDOR_DIR}"
-  COMMAND make -C "${VITAGL_VENDOR_DIR}" ${VITAGL_MAKE_FLAGS}
+  COMMAND bash "${VITAGL_VENDOR_DIR}/build_vitagl.sh" "${VITAGL_MAKE_FLAGS_STR}" "${VITAGL_STAMP}" "${VITAGL_VENDOR_DIR}" "${CMAKE_MAKE_PROGRAM}"
+  COMMAND "${CMAKE_MAKE_PROGRAM}" -C "${VITAGL_VENDOR_DIR}" ${VITAGL_MAKE_FLAGS}
   BYPRODUCTS "${VITAGL_VENDOR_DIR}/libvitaGL.a"
   COMMENT "Building vendored vitaGL with ${VITAGL_MAKE_FLAGS_STR}"
+  VERBATIM
 )
 include_directories(BEFORE ${VITAGL_VENDOR_DIR}/source)
 
@@ -84,6 +85,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -std=gnu++20 -Wno-write-strings -Wno-psabi
 add_executable(${CMAKE_PROJECT_NAME}
                source/main.c
                source/audio.c
+               source/controls.c
+               source/controls_menu.c
                source/dynlib.c
                source/java.c
                source/patch.c

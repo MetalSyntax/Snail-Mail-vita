@@ -132,6 +132,189 @@ void *dlsym_soloader(void * handle, const char * symbol) {
     return NULL;
 }
 
+// ---- Triage GPU-hang fin de carrera (Fase 12f): validadores de llamadas GL.
+// Solo registran anomalias (topadas para no inundar el log) y reenvian a
+// vitaGL sin alterar comportamiento. Cuestan unas pocas comparaciones por
+// llamada. Si el log muestra una anomalia justo antes del corte, esa es la
+// linea del motor que hay que corregir.
+static int s_gl_anomaly_budget = 32;
+
+void glTexImage2D_checked(GLenum target, GLint level, GLint internalformat,
+                          GLsizei width, GLsizei height, GLint border,
+                          GLenum format, GLenum type, const GLvoid *pixels) {
+    if (s_gl_anomaly_budget > 0 &&
+        (width <= 0 || height <= 0 || width > 2048 || height > 2048 || border != 0)) {
+        s_gl_anomaly_budget--;
+        l_warn("GL anomaly TexImage2D target=0x%x level=%d %dx%d border=%d fmt=0x%x type=0x%x pixels=%p",
+               (unsigned)target, level, width, height, border,
+               (unsigned)format, (unsigned)type, pixels);
+    }
+    glTexImage2D(target, level, internalformat, width, height, border, format, type, pixels);
+}
+
+void glDrawArrays_checked(GLenum mode, GLint first, GLsizei count) {
+    if (s_gl_anomaly_budget > 0 && (first < 0 || count <= 0 || count > 131072)) {
+        s_gl_anomaly_budget--;
+        l_warn("GL anomaly DrawArrays mode=0x%x first=%d count=%d",
+               (unsigned)mode, first, count);
+    }
+    glDrawArrays(mode, first, count);
+}
+
+// ---- Fase 12h: validador de draws (GPU-hang reproducible al activarse la
+// invencibilidad en el tutorial). vitaGL manda indices/vertices de VBO
+// directo a la GPU sin chequear rangos: un indice fuera del buffer hace que
+// la GPU lea memoria ajena y se cuelgue (en Android el driver lo tolera).
+// Replicamos en CPU el estado de buffers/arrays que usa el motor y, si un
+// draw leeria fuera de rango o tiene posiciones no finitas, se descarta y
+// se loguea el offset del motor que lo emitio.
+extern so_module so_mod;
+
+#define VB_MAX_BUFS 4096
+typedef struct { GLsizeiptr size; uint8_t *idx; } vb_buf; // idx: copia CPU (solo element buffers)
+typedef struct { GLint size; GLenum type; GLsizei stride; uintptr_t ptr; GLuint vbo; int on; } vb_attr;
+static vb_buf s_bufs[VB_MAX_BUFS];
+static GLuint s_array_buf, s_elem_buf;
+static vb_attr s_pos, s_tex;
+static int s_bad_draw_budget = 64;
+uint32_t g_bad_draws = 0; // leido por la telemetria race: de main.c
+
+static int gl_type_size(GLenum type) {
+    switch (type) {
+        case GL_BYTE: case GL_UNSIGNED_BYTE: return 1;
+        case GL_SHORT: case GL_UNSIGNED_SHORT: return 2;
+        default: return 4; // GL_FLOAT, GL_FIXED, GL_UNSIGNED_INT
+    }
+}
+
+void glBindBuffer_tracked(GLenum target, GLuint buffer) {
+    if (target == GL_ARRAY_BUFFER) s_array_buf = buffer;
+    else if (target == GL_ELEMENT_ARRAY_BUFFER) s_elem_buf = buffer;
+    glBindBuffer(target, buffer);
+}
+
+void glBufferData_tracked(GLenum target, GLsizeiptr size, const GLvoid *data, GLenum usage) {
+    GLuint id = target == GL_ELEMENT_ARRAY_BUFFER ? s_elem_buf : s_array_buf;
+    if (id && id < VB_MAX_BUFS && size >= 0) {
+        vb_buf *b = &s_bufs[id];
+        b->size = size;
+        if (target == GL_ELEMENT_ARRAY_BUFFER) {
+            uint8_t *n = realloc(b->idx, size ? size : 1);
+            if (n) {
+                b->idx = n;
+                if (data) memcpy(n, data, size); else memset(n, 0, size);
+            } else {
+                b->size = 0; // sin copia no se puede validar: tratar como vacio
+            }
+        }
+    }
+    glBufferData(target, size, data, usage);
+}
+
+void glBufferSubData_tracked(GLenum target, GLintptr offset, GLsizeiptr size, const GLvoid *data) {
+    if (target == GL_ELEMENT_ARRAY_BUFFER && s_elem_buf && s_elem_buf < VB_MAX_BUFS) {
+        vb_buf *b = &s_bufs[s_elem_buf];
+        if (b->idx && data && offset >= 0 && offset + size <= b->size)
+            memcpy(b->idx + offset, data, size);
+    }
+    glBufferSubData(target, offset, size, data);
+}
+
+void glVertexPointer_tracked(GLint size, GLenum type, GLsizei stride, const GLvoid *ptr) {
+    s_pos.size = size; s_pos.type = type; s_pos.stride = stride;
+    s_pos.ptr = (uintptr_t)ptr; s_pos.vbo = s_array_buf;
+    glVertexPointer(size, type, stride, ptr);
+}
+
+void glTexCoordPointer_tracked(GLint size, GLenum type, GLsizei stride, const GLvoid *ptr) {
+    s_tex.size = size; s_tex.type = type; s_tex.stride = stride;
+    s_tex.ptr = (uintptr_t)ptr; s_tex.vbo = s_array_buf;
+    glTexCoordPointer(size, type, stride, ptr);
+}
+
+void glEnableClientState_tracked(GLenum array) {
+    if (array == GL_VERTEX_ARRAY) s_pos.on = 1;
+    else if (array == GL_TEXTURE_COORD_ARRAY) s_tex.on = 1;
+    glEnableClientState(array);
+}
+
+void glDisableClientState_tracked(GLenum array) {
+    if (array == GL_VERTEX_ARRAY) s_pos.on = 0;
+    else if (array == GL_TEXTURE_COORD_ARRAY) s_tex.on = 0;
+    glDisableClientState(array);
+}
+
+// NULL si el array es valido para indices [0, max_idx]; si no, el motivo.
+static const char *attr_check(const vb_attr *a, uint32_t max_idx, int check_finite) {
+    if (!a->on) return NULL;
+    uint32_t bpe = gl_type_size(a->type);
+    uint32_t stride = a->stride ? (uint32_t)a->stride : a->size * bpe;
+    uint64_t need = (uint64_t)max_idx * stride + a->size * bpe;
+    if (a->vbo) {
+        if (a->vbo >= VB_MAX_BUFS) return NULL;
+        if ((uint64_t)a->ptr + need > (uint64_t)s_bufs[a->vbo].size) return "vbo-oob";
+        return NULL;
+    }
+    if (!a->ptr) return "null-client-ptr";
+    if (check_finite && a->type == GL_FLOAT) {
+        for (uint32_t v = 0; v <= max_idx; v++) {
+            const float *f = (const float *)(a->ptr + v * stride);
+            for (int c = 0; c < a->size; c++)
+                if (!isfinite(f[c]) || fabsf(f[c]) > 1.0e7f) return "bad-position";
+        }
+    }
+    return NULL;
+}
+
+void glDrawElements_checked(GLenum mode, GLsizei count, GLenum type, const GLvoid *indices) {
+    const char *why = NULL;
+    uint32_t max_idx = 0;
+    int isz = gl_type_size(type);
+    const uint8_t *idx = (const uint8_t *)indices;
+
+    if (count <= 0) {
+        why = "count<=0";
+    } else if (s_elem_buf) {
+        vb_buf *b = s_elem_buf < VB_MAX_BUFS ? &s_bufs[s_elem_buf] : NULL;
+        if (b) {
+            uintptr_t off = (uintptr_t)indices;
+            if (!b->idx || off + (uint64_t)count * isz > (uint64_t)b->size) why = "ibo-oob";
+            else idx = b->idx + off;
+        } else {
+            idx = NULL;
+        }
+    } else if (!idx) {
+        why = "null-indices";
+    }
+
+    if (!why && idx) {
+        for (GLsizei i = 0; i < count; i++) {
+            uint32_t v = isz == 2 ? ((const uint16_t *)idx)[i] : isz == 1 ? idx[i] : ((const uint32_t *)idx)[i];
+            if (v > max_idx) max_idx = v;
+        }
+        why = attr_check(&s_pos, max_idx, 1);
+        if (!why) why = attr_check(&s_tex, max_idx, 0);
+    }
+
+    if (why) {
+        g_bad_draws++;
+        if (s_bad_draw_budget > 0) {
+            s_bad_draw_budget--;
+            uintptr_t lr = (uintptr_t)__builtin_return_address(0);
+            l_warn("GL bad draw (%s) skipped: caller=so+0x%x mode=0x%x count=%d max_idx=%u "
+                   "ibo=%u(%d B) pos[vbo=%u ptr=0x%x sz=%d type=0x%x stride=%d vbo_size=%d] "
+                   "tex[on=%d vbo=%u ptr=0x%x stride=%d]",
+                   why, (unsigned)(lr - so_mod.text_base), (unsigned)mode, count, max_idx,
+                   s_elem_buf, s_elem_buf < VB_MAX_BUFS ? (int)s_bufs[s_elem_buf].size : -1,
+                   s_pos.vbo, (unsigned)s_pos.ptr, s_pos.size, (unsigned)s_pos.type, s_pos.stride,
+                   s_pos.vbo < VB_MAX_BUFS ? (int)s_bufs[s_pos.vbo].size : -1,
+                   s_tex.on, s_tex.vbo, (unsigned)s_tex.ptr, s_tex.stride);
+        }
+        return;
+    }
+    glDrawElements(mode, count, type, indices);
+}
+
 so_default_dynlib default_dynlib[] = {
         // Common C/C++ internals
         { "_ZNSt8bad_castD1Ev", (uintptr_t)&_ZNSt8bad_castD1Ev },
@@ -507,7 +690,7 @@ so_default_dynlib default_dynlib[] = {
         { "glAlphaFuncx", (uintptr_t)&glAlphaFuncx },
         { "glAttachShader", (uintptr_t)&glAttachShader },
         { "glBindAttribLocation", (uintptr_t)&glBindAttribLocation },
-        { "glBindBuffer", (uintptr_t)&glBindBuffer },
+        { "glBindBuffer", (uintptr_t)&glBindBuffer_tracked },
         { "glBindFramebuffer", (uintptr_t)&glBindFramebuffer },
         { "glBindFramebufferOES", (uintptr_t)&glBindFramebuffer },
         { "glBindRenderbuffer", (uintptr_t)&glBindRenderbuffer },
@@ -521,8 +704,8 @@ so_default_dynlib default_dynlib[] = {
         { "glBlendFunc", (uintptr_t)&glBlendFunc },
         { "glBlendFuncSeparate", (uintptr_t)&glBlendFuncSeparate },
         { "glBlendFuncSeparateOES", (uintptr_t)&glBlendFuncSeparate },
-        { "glBufferData", (uintptr_t)&glBufferData },
-        { "glBufferSubData", (uintptr_t)&glBufferSubData },
+        { "glBufferData", (uintptr_t)&glBufferData_tracked },
+        { "glBufferSubData", (uintptr_t)&glBufferSubData_tracked },
         { "glCheckFramebufferStatus", (uintptr_t)&glCheckFramebufferStatus },
         { "glCheckFramebufferStatusOES", (uintptr_t)&glCheckFramebufferStatus },
         { "glClear", (uintptr_t)&glClear },
@@ -562,10 +745,10 @@ so_default_dynlib default_dynlib[] = {
         { "glDepthRangex", (uintptr_t)&glDepthRangex },
         { "glDetachShader", (uintptr_t)&ret0 },
         { "glDisable", (uintptr_t)&glDisable },
-        { "glDisableClientState", (uintptr_t)&glDisableClientState },
+        { "glDisableClientState", (uintptr_t)&glDisableClientState_tracked },
         { "glDisableVertexAttribArray", (uintptr_t)&glDisableVertexAttribArray },
-        { "glDrawArrays", (uintptr_t)&glDrawArrays },
-        { "glDrawElements", (uintptr_t)&glDrawElements },
+        { "glDrawArrays", (uintptr_t)&glDrawArrays_checked },
+        { "glDrawElements", (uintptr_t)&glDrawElements_checked },
         { "glDrawTexfOES", (uintptr_t)&ret0 },
         { "glDrawTexfvOES", (uintptr_t)&ret0 },
         { "glDrawTexiOES", (uintptr_t)&ret0 },
@@ -577,7 +760,7 @@ so_default_dynlib default_dynlib[] = {
         { "glEGLImageTargetRenderbufferStorageOES", (uintptr_t)&ret0 },
         { "glEGLImageTargetTexture2DOES", (uintptr_t)&ret0 },
         { "glEnable", (uintptr_t)&glEnable },
-        { "glEnableClientState", (uintptr_t)&glEnableClientState },
+        { "glEnableClientState", (uintptr_t)&glEnableClientState_tracked },
         { "glEnableVertexAttribArray", (uintptr_t)&glEnableVertexAttribArray },
         { "glFinish", (uintptr_t)&glFinish },
         { "glFlush", (uintptr_t)&glFlush },
@@ -704,7 +887,7 @@ so_default_dynlib default_dynlib[] = {
         { "glStencilMask", (uintptr_t)&glStencilMask },
         { "glStencilOp", (uintptr_t)&glStencilOp },
         { "glStencilOpSeparate", (uintptr_t)&glStencilOpSeparate },
-        { "glTexCoordPointer", (uintptr_t)&glTexCoordPointer },
+        { "glTexCoordPointer", (uintptr_t)&glTexCoordPointer_tracked },
         { "glTexEnvf", (uintptr_t)&glTexEnvf },
         { "glTexEnvfv", (uintptr_t)&glTexEnvfv },
         { "glTexEnvi", (uintptr_t)&glTexEnvi },
@@ -717,7 +900,7 @@ so_default_dynlib default_dynlib[] = {
         { "glTexGenivOES", (uintptr_t)&ret0 },
         { "glTexGenxOES", (uintptr_t)&ret0 },
         { "glTexGenxvOES", (uintptr_t)&ret0 },
-        { "glTexImage2D", (uintptr_t)&glTexImage2D },
+        { "glTexImage2D", (uintptr_t)&glTexImage2D_checked },
         { "glTexParameterf", (uintptr_t)&glTexParameterf },
         { "glTexParameterfv", (uintptr_t)&ret0 },
         { "glTexParameteri", (uintptr_t)&glTexParameteri },
@@ -750,7 +933,7 @@ so_default_dynlib default_dynlib[] = {
         { "glVertexAttrib4f", (uintptr_t)&glVertexAttrib4f },
         { "glVertexAttrib4fv", (uintptr_t)&glVertexAttrib4fv },
         { "glVertexAttribPointer", (uintptr_t)&glVertexAttribPointer },
-        { "glVertexPointer", (uintptr_t)&glVertexPointer },
+        { "glVertexPointer", (uintptr_t)&glVertexPointer_tracked },
         { "glViewport", (uintptr_t)&glViewport },
         { "glWeightPointerOES", (uintptr_t)&ret0 },
 

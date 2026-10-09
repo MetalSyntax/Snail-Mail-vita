@@ -28,18 +28,17 @@ This repository contains a **wrapper/loader** for the Android release of Snail M
 
 ---
 
-## 🚨 Known Issues / Current Limitations
+## ✨ Features & Control Support
 
-> [!IMPORTANT]
-> Please review these notes before playing or reporting issues:
-
-- **Controls in Tilt Mode Only**:
-  - The game currently **only responds to physical controls if "Tilt Mode" is selected in the game options**.
-  - Physical controls (Left Analog Stick and D-Pad) emulate Android's native accelerometer (`JNIAccelerometer`) to steer Turbo.
-  - **Touch Mode** is not yet functional with analog controls: work is actively underway to implement full touch screen and on-screen steering support.
-- **Menu Navigation Requires Front Touchscreen**:
-  - Main menus and level selection screens do not support navigation via physical buttons or D-Pad.
-  - **You must use the PS Vita front touchscreen** to interact with UI buttons and navigate through menus.
+- **Universal Controls (Tilt & Touch Modes)**:
+  - Physical controls (Left Analog Stick and D-Pad) steer Turbo seamlessly regardless of whether **"Tilt Mode"** or **"Touch Mode"** is selected in settings.
+  - Front Touchscreen steering is fully functional during gameplay (touching the left/right halves of the screen steers Turbo).
+- **Full Physical Menu Navigation**:
+  - Main menus, options screens, pause menu, and level selection support **D-Pad smart snapping** to cycle through buttons.
+  - **Left Analog Stick** controls a smooth virtual cursor on screen.
+  - **Cross (X)** selects/activates buttons.
+  - **Circle (O) / Triangle** triggers Back / Cancel / OK navigation.
+  - Front Touchscreen remains fully supported simultaneously.
 
 ---
 
@@ -85,15 +84,25 @@ ux0:data/snailmail/
 
 | Input | In-Game Action | Menu Navigation |
 |:---:|:---|:---|
-| **Front Touchscreen** | Touch / Tap | **Select / Navigate Menus** |
-| **Left Analog Stick** | Steer Turbo (Left / Right / Up / Down) *(Tilt Mode)* | — |
-| **D-Pad** | Steer Turbo (Left / Right / Up / Down) *(Tilt Mode)* | — |
-| **Cross (X)** | Jump / Use Booster / Shoot | — |
-| **R1 Trigger** | Jump / Action | — |
-| **START** | Pause Game | Pause |
+| **Left Analog Stick** | Steer Turbo (Analog Steering) | — |
+| **D-Pad (Left / Right)** | Steer Turbo | — |
+| **Cross (X)** | Shoot (hold for auto-fire) / Start Level | Select (via Touch) |
+| **R1** | Shoot (alternative) | — |
+| **START** | Pause Game | — |
+| **START + SELECT** | Open controls remapping menu | Close menu |
+| **Front Touchscreen** | Touch Steering | Direct Touch Selection |
 
-> [!NOTE]
-> Make sure **Tilt Mode** is selected in the game settings to enable steering with the analog stick and D-Pad.
+> [!TIP]
+> **In-game controls menu**: press **START + SELECT** together to open the
+> Carnivores-style remapping menu (SHOOT, STEER LEFT/RIGHT, PAUSE, DEADZONE,
+> SENSITIVITY, RESET). Changes are saved automatically to
+> `ux0:data/snailmail/controls.txt`, which can also be edited by hand.
+> Available actions to bind: `CROSS`, `CIRCLE`, `TRIANGLE`, `SQUARE`, `LTRIGGER`, `RTRIGGER`, `START`, `SELECT`, `UP`, `DOWN`, `LEFT`, `RIGHT`.
+>
+> **Tilt Mode**: the game is fed a stable centered accelerometer vector
+> `(0, 0, 1)` every frame, so the screen stays centered instead of drifting
+> when Tilt controls are selected. The stick / D-Pad keep steering Turbo
+> through the mouse path in both modes.
 
 ---
 

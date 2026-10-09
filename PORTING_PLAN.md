@@ -51,6 +51,8 @@
 - [x] Tabla JNI (FalsoJNI): registro de los 26 métodos de `ADRenderer` + ganchos nativos directos en `so_patch()`.
 - [x] Gráficos: GLES 1.1 enlazado con `vitaGL`, resolución 960x544, buffer swap en render loop.
 - [x] Input: táctil frontal vía `JNIMouseEvent`, stick analógico izquierdo y D-Pad mapeados a `JNIAccelerometer`, botones Cruz/R1 mapeados a disparar/saltar (Space + click), Start a pausa.
+- [x] Menú de controles in-game (estilo Carnivores) con START+SELECT: remapeo de SHOOT/STEER/PAUSE, deadzone y sensibilidad, dibujado como overlay vitaGL con fuente 8x8 y guardado en `controls.txt`.
+- [x] Acelerómetro estable: `JNIAccelerometer(0,0,1)` cada frame para pantalla centrada en modo Tilt.
 - [x] Audio: subsistema completo multicanal con Tremor Vorbis (`libvorbisidec`) y `SceAudioOut` con thread dedicado en CPU Core 1.
 - [x] Assets, LiveArea y VPK: LiveArea optimizado (PNG 8-bit indexados), `snailmail.vpk` generado exitosamente.
 - [ ] Primer arranque en consola real.
