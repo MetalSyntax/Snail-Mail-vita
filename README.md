@@ -41,6 +41,7 @@ This repository contains a **wrapper/loader** for the Android release of Snail M
   - **D-Pad** and **Left Analog Stick** move a virtual cursor; the button under it is highlighted.
   - **Cross (X)** / **R1** tap the button under the cursor (menus, Continue screens, tutorial cards).
   - Front Touchscreen remains fully supported at the same time.
+- **Stable tutorial and weapon power-ups**: v01.02 fixes the GPU freeze that happened when firing after collecting the third weapon power-up (see [release notes](Docs/RELEASE_v01.02.md)).
 - **In-Game Controls Menu (START + SELECT)**:
   - Remap SHOOT, STEER LEFT/RIGHT and PAUSE, adjust DEADZONE and SENSITIVITY, or reset to defaults. Saved automatically to `ux0:data/snailmail/controls.txt`.
 
@@ -49,7 +50,7 @@ This repository contains a **wrapper/loader** for the Android release of Snail M
 ## Known Issues / Current Limitations
 
 > [!WARNING]
-> - **GPU hang during the tutorial (under observation)**: earlier builds could freeze the console's GPU at a fixed point of the tutorial (when Turbo becomes invincible). v01.01 adds several protections (see [release notes](Docs/RELEASE_v01.01.md)) and the tutorial has been completed without freezing on real hardware, but the exact trigger is not yet confirmed. If it happens, please share `ux0:data/snailmail/logs/snailmail_NNN.log` and the crash dump from `ux0:data/`.
+> - **Occasional stutter during races**: short hitches have been reported on real hardware during gameplay. They do not affect progress; investigation is ongoing.
 > - **Missing textures in the original data**: the game itself logs a few `Cannot find Texture X/...` messages while loading (also present in the Android build); they are harmless.
 > - **OpenFeint** (online leaderboards/achievements) is a discontinued service and is not available.
 

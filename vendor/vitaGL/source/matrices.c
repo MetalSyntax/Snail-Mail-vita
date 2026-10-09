@@ -935,6 +935,8 @@ void glRotatex(GLfixed angle, GLfixed x, GLfixed y, GLfixed z) {
 	flag_dirty_matrix_unif()
 }
 
+uint32_t vgl_matrix_stack_errors = 0; // Push/pop dropped for overflow/underflow (read by the port's telemetry)
+
 void glPushMatrix(void) {
 #ifdef HAVE_DLISTS
 	// Enqueueing function to a display list if one is being compiled
@@ -949,32 +951,29 @@ void glPushMatrix(void) {
 #endif
 
 	if (matrix == &modelview_matrix) {
-#ifndef SKIP_ERROR_HANDLING
-		// Error handling
+		// Always checked (even with SKIP_ERROR_HANDLING): uint8_t counters wrap and corrupt vitaGL state; GLES just sets an error.
 		if (modelview_stack_counter >= MODELVIEW_STACK_DEPTH) {
-			SET_GL_ERROR(GL_STACK_OVERFLOW)
+			vgl_matrix_stack_errors++;
+			return;
 		}
-#endif
 		// Copying current matrix into the matrix stack and increasing stack counter
 		matrix4x4_copy(modelview_matrix_stack[modelview_stack_counter++], *matrix);
 	} else if (matrix == &projection_matrix) {
-#ifndef SKIP_ERROR_HANDLING
-		// Error handling
+		// Always checked (even with SKIP_ERROR_HANDLING): uint8_t counters wrap and corrupt vitaGL state; GLES just sets an error.
 		if (projection_stack_counter >= GENERIC_STACK_DEPTH) {
-			SET_GL_ERROR(GL_STACK_OVERFLOW)
+			vgl_matrix_stack_errors++;
+			return;
 		}
-#endif
 		// Copying current matrix into the matrix stack and increasing stack counter
 		matrix4x4_copy(projection_matrix_stack[projection_stack_counter++], *matrix);
 	} else if (matrix == &texture_matrix[server_texture_unit]) {
 		texture_unit *tex_unit = &texture_units[server_texture_unit];
 
-#ifndef SKIP_ERROR_HANDLING
-		// Error handling
+		// Always checked (even with SKIP_ERROR_HANDLING): uint8_t counters wrap and corrupt vitaGL state; GLES just sets an error.
 		if (tex_unit->texture_stack_counter >= GENERIC_STACK_DEPTH) {
-			SET_GL_ERROR(GL_STACK_OVERFLOW)
+			vgl_matrix_stack_errors++;
+			return;
 		}
-#endif
 		// Copying current matrix into the matrix stack and increasing stack counter
 		matrix4x4_copy(tex_unit->texture_matrix_stack[tex_unit->texture_stack_counter++], *matrix);
 	}
@@ -996,12 +995,11 @@ void glPopMatrix(void) {
 #endif
 
 	if (matrix == &modelview_matrix) {
-#ifndef SKIP_ERROR_HANDLING
-		// Error handling
+		// Always checked (even with SKIP_ERROR_HANDLING): uint8_t counters wrap and corrupt vitaGL state; GLES just sets an error.
 		if (modelview_stack_counter == 0) {
-			SET_GL_ERROR(GL_STACK_UNDERFLOW)
+			vgl_matrix_stack_errors++;
+			return;
 		}
-#endif
 		// Copying last matrix on stack into current matrix and decreasing stack counter
 		matrix4x4_copy(*matrix, modelview_matrix_stack[--modelview_stack_counter]);
 
@@ -1010,12 +1008,11 @@ void glPopMatrix(void) {
 		flag_dirty_vert_unif(MODELVIEW_MATRIX_UNIF)
 		flag_dirty_vert_unif(WVP_MATRIX_UNIF)
 	} else if (matrix == &projection_matrix) {
-#ifndef SKIP_ERROR_HANDLING
-		// Error handling
+		// Always checked (even with SKIP_ERROR_HANDLING): uint8_t counters wrap and corrupt vitaGL state; GLES just sets an error.
 		if (projection_stack_counter == 0) {
-			SET_GL_ERROR(GL_STACK_UNDERFLOW)
+			vgl_matrix_stack_errors++;
+			return;
 		}
-#endif
 		// Copying last matrix on stack into current matrix and decreasing stack counter
 		matrix4x4_copy(*matrix, projection_matrix_stack[--projection_stack_counter]);
 
@@ -1025,12 +1022,11 @@ void glPopMatrix(void) {
 	} else if (matrix == &texture_matrix[server_texture_unit]) {
 		texture_unit *tex_unit = &texture_units[server_texture_unit];
 
-#ifndef SKIP_ERROR_HANDLING
-		// Error handling
+		// Always checked (even with SKIP_ERROR_HANDLING): uint8_t counters wrap and corrupt vitaGL state; GLES just sets an error.
 		if (tex_unit->texture_stack_counter == 0) {
-			SET_GL_ERROR(GL_STACK_UNDERFLOW)
+			vgl_matrix_stack_errors++;
+			return;
 		}
-#endif
 		// Copying last matrix on stack into current matrix and decreasing stack counter
 		matrix4x4_copy(*matrix, tex_unit->texture_matrix_stack[--tex_unit->texture_stack_counter]);
 		flag_dirty_vert_unif(TEX_MATRIX_UNIF)

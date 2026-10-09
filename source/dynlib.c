@@ -266,8 +266,51 @@ static const char *attr_check(const vb_attr *a, uint32_t max_idx, int check_fini
     return NULL;
 }
 
+// ---- Fase 12j (defensivo, no era la causa del hang del 3er power-up): con
+// NO_DEBUG vitaGL no chequea el id en glBindTexture, y un id >= TEXTURES_NUM
+// haria que glTexParameteri escriba fuera de texture_slots. En GLES es solo
+// un nombre sin textura: lo bindeamos como 0 y lo logueamos.
+#define VGL_TEXTURES_NUM 16384 // vendor/vitaGL shared.h TEXTURES_NUM
+uint32_t g_bad_tex_binds = 0; // leido por la telemetria race: de main.c
+
+void glBindTexture_checked(GLenum target, GLuint texture) {
+    if (texture >= VGL_TEXTURES_NUM) {
+        if (g_bad_tex_binds++ < 16)
+            l_warn("GL bad texture id %u (0x%x) bound as 0: caller=so+0x%x", texture, texture,
+                   (unsigned)((uintptr_t)__builtin_return_address(0) - so_mod.text_base));
+        texture = 0;
+    }
+    glBindTexture(target, texture);
+}
+
+// ---- Fase 12k: G0RenderObject (so+0x7cf9c, armeabi-v7a) dibuja cada modelo con
+// glDrawElements(GL_TRIANGLES, count del modelo). El modelo del arma del 3er
+// power-up trae count=8: GLES ignora los indices que no completan una
+// primitiva, pero vitaGL se los pasa a GXM y la GPU se cuelga. Recortamos
+// como GLES.
+uint32_t g_trimmed_draws = 0; // leido por la telemetria race: de main.c
+
+static GLsizei gl_trim_count(GLenum mode, GLsizei count) {
+    switch (mode) {
+        case GL_TRIANGLES: return count - count % 3;
+        case GL_LINES: return count & ~1;
+        case GL_TRIANGLE_STRIP: case GL_TRIANGLE_FAN: return count < 3 ? 0 : count;
+        case GL_LINE_STRIP: case GL_LINE_LOOP: return count < 2 ? 0 : count;
+        default: return count;
+    }
+}
+
 void glDrawElements_checked(GLenum mode, GLsizei count, GLenum type, const GLvoid *indices) {
     const char *why = NULL;
+    GLsizei trimmed = gl_trim_count(mode, count);
+    if (trimmed != count) {
+        if (g_trimmed_draws++ == 0) // una sola linea: loguear en cada disparo causa tirones
+            l_warn("GL draw count %d not valid for mode 0x%x, trimmed to %d: caller=so+0x%x",
+                   count, (unsigned)mode, trimmed,
+                   (unsigned)((uintptr_t)__builtin_return_address(0) - so_mod.text_base));
+        if (!trimmed) return;
+        count = trimmed;
+    }
     uint32_t max_idx = 0;
     int isz = gl_type_size(type);
     const uint8_t *idx = (const uint8_t *)indices;
@@ -695,7 +738,7 @@ so_default_dynlib default_dynlib[] = {
         { "glBindFramebufferOES", (uintptr_t)&glBindFramebuffer },
         { "glBindRenderbuffer", (uintptr_t)&glBindRenderbuffer },
         { "glBindRenderbufferOES", (uintptr_t)&glBindRenderbuffer },
-        { "glBindTexture", (uintptr_t)&glBindTexture },
+        { "glBindTexture", (uintptr_t)&glBindTexture_checked },
         { "glBlendColor", (uintptr_t)&ret0 },
         { "glBlendEquation", (uintptr_t)&glBlendEquation },
         { "glBlendEquationOES", (uintptr_t)&glBlendEquation },

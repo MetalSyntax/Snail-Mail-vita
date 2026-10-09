@@ -280,10 +280,15 @@ int main() {
             if ((race_frames % 300) == 0) {
                 extern uint32_t vgl_skipped_tex_draws; // vendor/vitaGL ffp.c
                 extern uint32_t g_bad_draws;           // dynlib.c
-                l_info("race: frames=%d vram_free=%u ram_free=%u skipped_tex_draws=%u bad_draws=%u", race_frames,
+                extern uint32_t vgl_matrix_stack_errors; // vendor/vitaGL matrices.c
+                extern uint32_t g_bad_tex_binds;         // dynlib.c
+                extern uint32_t g_trimmed_draws;         // dynlib.c
+                l_info("race: frames=%d vram_free=%u ram_free=%u skipped_tex_draws=%u bad_draws=%u matrix_stack_errors=%u bad_tex_binds=%u trimmed_draws=%u", race_frames,
                        (unsigned)vglMemFree(VGL_MEM_VRAM),
                        (unsigned)vglMemFree(VGL_MEM_RAM),
-                       (unsigned)vgl_skipped_tex_draws, (unsigned)g_bad_draws);
+                       (unsigned)vgl_skipped_tex_draws, (unsigned)g_bad_draws,
+                       (unsigned)vgl_matrix_stack_errors, (unsigned)g_bad_tex_binds,
+                       (unsigned)g_trimmed_draws);
             }
             float lx = (float)(pad.lx - 128) / 128.0f;
             float deadzone = (float)g_controls.deadzone / 100.0f;

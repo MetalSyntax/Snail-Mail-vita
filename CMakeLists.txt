@@ -16,7 +16,7 @@ include("${VITASDK}/share/vita.cmake" REQUIRED)
 set(VITA_APP_NAME "Snail Mail")
 set(VITA_TITLEID "PSVSM0001")
 set(VITA_VPKNAME "snailmail")
-set(VITA_VERSION "01.01")
+set(VITA_VERSION "01.02")
 set(VITA_MKSFOEX_FLAGS "-d ATTRIBUTE2=12")
 
 # Optional: used for "send" and "dump" targets
