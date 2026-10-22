@@ -33,8 +33,7 @@ typedef struct {
     long rate;
     float gain;
     float pos_frac;
-    int16_t prev_l, prev_r;
-    int have_prev;
+    int16_t prev_l, prev_r, cur_l, cur_r;
     int16_t stage[256];
     int stage_frames, stage_pos;
 } voice_t;
@@ -96,34 +95,19 @@ static int voice_decode(voice_t *v, int16_t *out, int frames) {
         return done;
     }
 
+    // Linear interpolation between the last two fetched frames (prev -> cur).
     float step = (float) v->rate / (float) AUDIO_RATE;
-    while (done < frames && v->active && !v->paused) {
-        while (v->pos_frac >= 1.0f && v->active) {
-            v->prev_l = v->stage[v->stage_pos * v->channels];
-            v->prev_r = v->stage[v->stage_pos * v->channels + (v->channels > 1 ? 1 : 0)];
-            v->have_prev = 1;
-            int16_t dummy_l, dummy_r;
-            if (!voice_next_src_frame(v, &dummy_l, &dummy_r)) break;
+    while (done < frames) {
+        while (v->pos_frac >= 1.0f) {
+            int16_t l, r;
+            if (!voice_next_src_frame(v, &l, &r)) return done;
+            v->prev_l = v->cur_l; v->prev_r = v->cur_r;
+            v->cur_l = l; v->cur_r = r;
             v->pos_frac -= 1.0f;
         }
-        if (!v->active || v->paused) break;
-
-        int16_t cur_l = v->stage[v->stage_pos * v->channels];
-        int16_t cur_r = v->stage[v->stage_pos * v->channels + (v->channels > 1 ? 1 : 0)];
-        float p0_l = v->have_prev ? (float) v->prev_l : (float) cur_l;
-        float p0_r = v->have_prev ? (float) v->prev_r : (float) cur_r;
         float frac = v->pos_frac;
-
-        float samp_l = (p0_l + frac * ((float) cur_l - p0_l)) * v->gain;
-        float samp_r = (p0_r + frac * ((float) cur_r - p0_r)) * v->gain;
-
-        if (samp_l > 32767.0f) samp_l = 32767.0f;
-        else if (samp_l < -32768.0f) samp_l = -32768.0f;
-        if (samp_r > 32767.0f) samp_r = 32767.0f;
-        else if (samp_r < -32768.0f) samp_r = -32768.0f;
-
-        out[done * 2]     = (int16_t) samp_l;
-        out[done * 2 + 1] = (int16_t) samp_r;
+        out[done * 2]     = (int16_t)((v->prev_l + frac * (v->cur_l - v->prev_l)) * v->gain);
+        out[done * 2 + 1] = (int16_t)((v->prev_r + frac * (v->cur_r - v->prev_r)) * v->gain);
         done++;
         v->pos_frac += step;
     }
@@ -266,7 +250,7 @@ int audio_load_sample(const char *name) {
 
 int audio_play_sample(int sample_id, float volume) {
     if (!audio_running || sample_id < 1 || sample_id > num_samples) return 0;
-    if (volume <= 0.0f) volume = 1.0f;
+    if (volume <= 0.0f || volume > 1.0f) volume = 1.0f;
 
     const char *path = samples[sample_id - 1].path;
     FILE *f = fopen(path, "rb");
@@ -296,8 +280,8 @@ int audio_play_sample(int sample_id, float volume) {
     voices[voice_idx].channels = vi->channels;
     voices[voice_idx].rate = vi->rate;
     voices[voice_idx].gain = volume;
-    voices[voice_idx].pos_frac = 0.0f;
-    voices[voice_idx].have_prev = 0;
+    voices[voice_idx].pos_frac = 2.0f;
+    voices[voice_idx].cur_l = voices[voice_idx].cur_r = 0;
     voices[voice_idx].stage_frames = 0;
     voices[voice_idx].stage_pos = 0;
     sceKernelUnlockMutex(audio_mutex, 1);
@@ -348,8 +332,8 @@ void audio_play_music(const char *name) {
     voices[VOICE_BGM].channels = vi->channels;
     voices[VOICE_BGM].rate = vi->rate;
     voices[VOICE_BGM].gain = 1.0f;
-    voices[VOICE_BGM].pos_frac = 0.0f;
-    voices[VOICE_BGM].have_prev = 0;
+    voices[VOICE_BGM].pos_frac = 2.0f;
+    voices[VOICE_BGM].cur_l = voices[VOICE_BGM].cur_r = 0;
     voices[VOICE_BGM].stage_frames = 0;
     voices[VOICE_BGM].stage_pos = 0;
     sceKernelUnlockMutex(audio_mutex, 1);

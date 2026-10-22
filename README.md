@@ -41,7 +41,8 @@ This repository contains a **wrapper/loader** for the Android release of Snail M
   - **D-Pad** and **Left Analog Stick** move a virtual cursor; the button under it is highlighted.
   - **Cross (X)** / **R1** tap the button under the cursor (menus, Continue screens, tutorial cards).
   - Front Touchscreen remains fully supported at the same time.
-- **Stable tutorial and weapon power-ups**: v01.02 fixes the GPU freeze that happened when firing after collecting the third weapon power-up (see [release notes](Docs/RELEASE_v01.02.md)).
+- **Stable tutorial and weapon power-ups**: v01.02 fixes the GPU freeze that happened when firing after collecting the third weapon power-up (see [v01.02 release notes](Docs/RELEASE_v01.02.md)).
+- **Save persistence & clean audio**: v01.03 fixes save game creation (preventing the game from resetting to the tutorial on restart) and fixes audio resampler glitches/crackling (see [v01.03 release notes](Docs/RELEASE_v01.03.md)).
 - **In-Game Controls Menu (START + SELECT)**:
   - Remap SHOOT, STEER LEFT/RIGHT and PAUSE, adjust DEADZONE and SENSITIVITY, or reset to defaults. Saved automatically to `ux0:data/snailmail/controls.txt`.
 

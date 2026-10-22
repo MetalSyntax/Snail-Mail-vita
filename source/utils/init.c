@@ -72,6 +72,9 @@ void soloader_init_all() {
         }
     }
 
+    // Save hooks (patch.c/java.c) fopen into saves/ and fail silently if it's missing.
+    file_mkpath(DATA_PATH "saves/", 0777);
+
     if (so_file_load(&so_mod, so_to_load, LOAD_ADDRESS) < 0) {
         l_fatal("SO could not be loaded.");
         fatal_error("Error: could not load %s.", so_to_load);
